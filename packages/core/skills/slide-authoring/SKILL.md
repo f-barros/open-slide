@@ -5,7 +5,7 @@ description: Technical reference for writing or editing open-slide pages — fil
 
 # Authoring open-slide pages
 
-This skill is the **technical reference** for everything that happens inside `slides/<id>/index.tsx`. It does not own a workflow:
+This skill is the **technical reference** for everything that happens inside `slides/<id>/`. It does not own a workflow:
 
 - `create-slide` owns "draft a new deck" — it asks the user scoping questions, then delegates the *how* to this skill.
 - `apply-comments` owns "process inspector markers" — it finds markers and applies edits, but the edits themselves follow the rules here.
@@ -30,20 +30,24 @@ Each framework primitive has a full reference file under `references/` in this s
 
 ## Hard rules
 
-- Put the slide under `slides/<kebab-case-id>/`.
-- Entry is `slides/<id>/index.tsx`. Images/videos/fonts go under `slides/<id>/assets/`.
-- Do **not** touch `package.json`, `open-slide.config.ts`, or other slides.
-- Do not add dependencies. Only `react`, `@open-slide/core`, and standard web APIs are available.
-- A slide is **one `index.tsx` plus `assets/`** — nothing else. Do not create sibling `.tsx`/`.ts` files (`Card.tsx`, `components/`, `helpers.ts`, etc.); helper components and constants go inside `index.tsx`. Do not create `README.md` or other prose files either.
+- Put the deck under `slides/<kebab-case-id>/`.
+- Entry is `slides/<id>/index.tsx` (sole deck root).
+- One page per file under `slides/<id>/slides/`. Register pages and **explicit order** in `index.tsx` (`export default […]`). Filenames do not control order.
+- Put shared chrome (headers, footers, cards, layouts) and theme tokens under `slides/<id>/components/`. Do not treat those files as slides.
+- Images/videos/fonts go under `slides/<id>/assets/`.
+- Do **not** touch `package.json`, `open-slide.config.ts`, or other decks.
+- Do not add dependencies. Only `react`, `@comp-slide/core`, and standard web APIs are available.
+- Do not create `README.md` or other prose files inside the deck folder.
+- After editing a shared component, verify every page that imports it.
+- Speaker `notes` stay index-aligned with `export default` on the entry — reorder both together.
 
 ## File contract
 
 ```tsx
 // slides/<id>/index.tsx
-import type { Page, SlideMeta } from '@open-slide/core';
-
-const Cover: Page = () => <div>…</div>;
-const Body: Page = () => <div>…</div>;
+import type { Page, SlideMeta } from '@comp-slide/core';
+import { Cover } from './slides/cover';
+import { Body } from './slides/body';
 
 export const meta: SlideMeta = {
   title: 'My slide',
@@ -52,22 +56,35 @@ export const meta: SlideMeta = {
 export default [Cover, Body] satisfies Page[];
 ```
 
-- `export default` is a **non-empty array of zero-prop React components**, one per page, in order.
+```tsx
+// slides/<id>/slides/cover.tsx
+import type { Page } from '@comp-slide/core';
+import { Header } from '../components/header';
+
+export const Cover: Page = () => (
+  <div style={{ width: '100%', height: '100%' }}>
+    <Header />
+    …
+  </div>
+);
+```
+
+- `export default` on the entry is a **non-empty array of zero-prop React components**, one per page, in order.
+- Small decks may keep all pages in `index.tsx`; prefer splitting into `slides/` as the deck grows.
 - `meta.title` (optional) shows in the slide header. Default is the folder name.
-- The slide id is the kebab-case folder name. Pick something short and descriptive (`q2-roadmap`, `team-offsite-2026`).
+- The deck id is the kebab-case folder name. Pick something short and descriptive (`q2-roadmap`, `team-offsite-2026`).
 - `meta.theme` (optional) marks the slide as built from a theme under `themes/`. The id must match a `<id>.md` basename. Surfaces a back-link chip on the slide card and lists the slide on `/themes/<id>`. Omit if the slide isn't derived from a registered theme.
 - `meta.createdAt` is an **ISO 8601 string literal** (e.g. `'2026-05-16T12:00:00Z'`) set once when the slide is scaffolded. The home page uses it for the default "newest first" sort. Always include it on new slides — **immediately before writing the file, run `node -e "console.log(new Date().toISOString())"` via Bash and paste the exact output** as the value. Don't type a timestamp from memory — you will get the date or time wrong. Must be a plain string literal (no `new Date(...)` or imports in the slide itself) — the framework reads it via a regex at build time, not by evaluating the module.
 
 ## Editing an existing slide
 
-A finished slide commonly runs 1000–1800 lines. When you only need to touch one page, **don't read the whole file** — locate the page first, then read just that range:
+Prefer modular decks: open the specific page under `slides/<id>/slides/…`. To find pages:
 
 ```bash
-grep -n ": Page = " slides/<id>/index.tsx
+grep -n ": Page = " slides/<id>/index.tsx slides/<id>/slides/*
 ```
 
-This lists every `const Foo: Page = …` declaration with its line number. Read the target page with `Read` using `offset` + `limit` (~150 lines is usually enough to capture one page plus its helper components). Read the whole file only when you need cross-page context (palette audit, reordering, design const tweaks).
-
+Read the target page with `Read` using `offset` + `limit` (~150 lines is usually enough). Read shared components under `components/` when changing chrome or theme tokens.
 ## Canvas
 
 Every page renders into a fixed **1920 × 1080** canvas. The framework scales it; you design as if the viewport is literally 1920×1080.
@@ -147,7 +164,7 @@ Themes are produced by the `create-theme` skill and are pure documentation: copy
 
 ## Design system (opt-in, per-slide)
 
-A slide can declare typed design tokens at the top of `index.tsx` — `export const design: DesignSystem = { palette, fonts, typeScale, radius }` — and consume them via `var(--osd-X)` in inline styles. The framework injects the CSS variables at the canvas root, and the dev UI's Design panel can live-tweak them.
+A slide can declare typed design tokens on the entry (`index.tsx`) — `export const design: DesignSystem = { palette, fonts, typeScale, radius }` — and consume them via `var(--osd-X)` in inline styles. Deck-local constants may live in `components/theme.ts`. The framework injects the CSS variables at the canvas root, and the dev UI's Design panel can live-tweak them.
 
 **Default to using it.** Every new slide should declare a `design` const so it stays tweakable from the panel after generation. Only fall back to plain palette constants for a one-off slide whose palette is intentionally locked (`references/design-system.md` covers the fallback).
 
@@ -156,7 +173,7 @@ A slide can declare typed design tokens at the top of `index.tsx` — `export co
 ## Starter template
 
 ```tsx
-import type { DesignSystem, Page, SlideMeta } from '@open-slide/core';
+import type { DesignSystem, Page, SlideMeta } from '@comp-slide/core';
 
 export const design: DesignSystem = {
   palette: { bg: '#0f172a', text: '#f8fafc', accent: '#fbbf24' },
@@ -237,7 +254,7 @@ Slide-local assets live under `slides/<id>/assets/` and are imported as ES modul
 
 ## Image placeholders
 
-When a page genuinely needs a real image **the user has to provide** (product screenshot, team photo, chart from their data), leave a typed `<ImagePlaceholder hint="…" />` from `@open-slide/core` instead of inventing a stand-in — the user replaces it via the Assets panel + inspector. **Do not** use placeholders for decoration or generic stock-photo filler; if type, layout, and color can carry the page, do that.
+When a page genuinely needs a real image **the user has to provide** (product screenshot, team photo, chart from their data), leave a typed `<ImagePlaceholder hint="…" />` from `@comp-slide/core` instead of inventing a stand-in — the user replaces it via the Assets panel + inspector. **Do not** use placeholders for decoration or generic stock-photo filler; if type, layout, and color can carry the page, do that.
 
 `references/assets.md` has the full usage rules, sizing guidance, and examples of when a placeholder is (and isn't) warranted.
 
@@ -267,7 +284,7 @@ Read `references/morph.md` before writing one — the seven rules there (opacity
 
 When a page has visually repeated items — cards, logo rows, gallery tiles, list rows, step indicators — **define a small component and instantiate it once per item**. Do **not** render the group with `array.map` over a data array.
 
-Define the component **in the same `index.tsx`**, alongside the `Page` components. Never split it into a sibling file like `Card.tsx` — a slide is always a single `index.tsx` plus its `assets/`.
+Define shared components under `slides/<id>/components/` and import them from page files. Do not duplicate headers, footers, cards, or layout primitives across pages.
 
 ```tsx
 // ✅ Each card is its own JSX node — inspector edits one at a time.
@@ -313,12 +330,13 @@ This applies whenever the *visual element* repeats, not whenever the *data* does
 - Clicking a slide shows a left thumbnail rail, main page, prev/next, page counter.
 - Arrow keys / PageUp / PageDown navigate. `F` enters fullscreen play mode.
 - In play mode: Space/→ next, ← prev, Esc exit.
-- Hot reload: edit `index.tsx` and the browser updates live.
+- Hot reload: edit `index.tsx`, any page under `slides/`, or a shared `components/` module and the browser updates live.
 
 ## Self-review before finishing
 
-- [ ] `slides/<id>/index.tsx` `export default`s a non-empty `Page[]`.
-- [ ] Every page's root fills `100% × 100%`.
+- [ ] `slides/<id>/index.tsx` `export default`s a non-empty `Page[]` in explicit order.
+- [ ] Each page lives in its own file under `slides/<id>/slides/` when using the modular layout.
+- [ ] Shared chrome lives in `components/`; after editing shared modules, spot-check every page that imports them.- [ ] Every page's root fills `100% × 100%`.
 - [ ] Content lives inside padding (no text kisses the edge).
 - [ ] **For every page, sum (font_size × line_height × lines) + gaps + 2×padding ≤ 1080px.** If close, split the page. No `overflow: auto` escape hatches.
 - [ ] No bullet wraps to a second line at the chosen font size.
@@ -343,7 +361,7 @@ This applies whenever the *visual element* repeats, not whenever the *data* does
 - ❌ Bullets that wrap to a second line — either shorten or move to its own page.
 - ❌ Body type under 28px — unreadable on a projector.
 - ❌ Inconsistent palette across pages.
-- ❌ Installing packages. Only `react`, `@open-slide/core`, and standard web APIs are available.
+- ❌ Installing packages. Only `react`, `@comp-slide/core`, and standard web APIs are available.
 - ❌ Writing CSS to a shared file. Inline styles or scoped classnames only.
 - ❌ Creating `README.md` or other prose files inside the slide folder.
 - ❌ Editing `package.json`, `open-slide.config.ts`, or other slides.

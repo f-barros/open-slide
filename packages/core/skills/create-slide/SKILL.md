@@ -13,7 +13,7 @@ You only write files under `slides/<id>/`. Never modify `package.json`, `open-sl
 
 List files under `themes/`. If any theme markdown files exist (anything other than `README.md`), call `AskUserQuestion` with each theme id as an option plus a final **"no theme — design from scratch"** option. (`AskUserQuestion` holds at most 4 options — with 4+ themes, offer the 3 most topic-relevant plus "no theme"; the auto-added "Other" lets the user name any omitted theme.)
 
-- If the user picks a theme: read `themes/<id>.md` end-to-end. The theme's palette, typography, layout, and Title/Footer components are now authoritative — copy them directly into the slide. If the theme declares a webfont import, load it per `references/webfonts.md` in `slide-authoring` (module-level, slide-keyed injection) — don't let the slide silently fall back to system fonts. **Also set `theme: '<theme-id>'` on the `meta` export in `index.tsx`** (e.g. `export const meta: SlideMeta = { title: '…', createdAt: '…', theme: '<theme-id>' };` — `createdAt` per the file contract in `slide-authoring`) so the slide back-links to the theme (chip on the slide card + listing on `/themes/<id>`). In Step 2, skip the **aesthetic direction** question (the theme already commits to one direction); you still need the topic itself, so confirm it before moving on. Page count and text density are independent of theme — ask those normally. For motion, if the theme's Motion section commits to a philosophy, present it as the "(Recommended)" option and reuse the theme's paste-ready keyframes; the user can still override.
+- If the user picks a theme: read `themes/<id>.md` end-to-end. The theme's palette, typography, layout, and Title/Footer components are now authoritative — copy them into the deck's `components/` (or the entry). If the theme declares a webfont import, load it per `references/webfonts.md` in `slide-authoring` (module-level, slide-keyed injection) — don't let the slide silently fall back to system fonts. **Also set `theme: '<theme-id>'` on the `meta` export in `index.tsx`** (e.g. `export const meta: SlideMeta = { title: '…', createdAt: '…', theme: '<theme-id>' };` — `createdAt` per the file contract in `slide-authoring`) so the slide back-links to the theme (chip on the slide card + listing on `/themes/<id>`). In Step 2, skip the **aesthetic direction** question (the theme already commits to one direction); you still need the topic itself, so confirm it before moving on. Page count and text density are independent of theme — ask those normally. For motion, if the theme's Motion section commits to a philosophy, present it as the "(Recommended)" option and reuse the theme's paste-ready keyframes; the user can still override.
 - If the user picks "no theme", or `themes/` contains no theme markdown files: proceed to Step 2 unchanged.
 
 If you skip the aesthetic question because a theme was picked, restate the theme name in Step 2 so the user can correct course before you start writing.
@@ -62,20 +62,34 @@ Sketch the slide as a list of page roles before writing code. Common page types:
 
 **Rule of thumb**: one idea per page. If you're tempted to put two, split them.
 
-If the deck topic naturally calls for specific real images the user must supply (product screenshots, team photos, customer dashboards), plan where those go and use `<ImagePlaceholder>` from `@open-slide/core` — see the **Image placeholders** section in `slide-authoring`. Default is **no placeholders**: only insert one when a real image is genuinely required.
+If the deck topic naturally calls for specific real images the user must supply (product screenshots, team photos, customer dashboards), plan where those go and use `<ImagePlaceholder>` from `@comp-slide/core` — see the **Image placeholders** section in `slide-authoring`. Default is **no placeholders**: only insert one when a real image is genuinely required.
 
 ## Step 5 — Commit to a visual direction
 
 Pick one coherent palette / type scale / aesthetic and hold it across every page. The full set of constraints (palette structure, type scale, padding, aesthetic options) lives in `slide-authoring` — apply it.
 
-**Default: declare a top-level `export const design: DesignSystem = { … }`** at the top of `index.tsx` (after imports) using the chosen palette / type scale, and reference the values via `var(--osd-X)` from inline styles. This keeps the slide tweakable from the Design panel after generation, which is what the user almost always wants. Only skip the `design` const for a one-off slide whose palette is intentionally locked and not meant to be re-themed — in that case, fall back to the local `palette` constants pattern. The "Design system" section of `slide-authoring` covers the format and available tokens.
+**Default: declare a top-level `export const design: DesignSystem = { … }`** on `index.tsx` (after imports) using the chosen palette / type scale, and reference the values via `var(--osd-X)` from inline styles. Deck-local tokens may also live in `components/theme.ts` and feed `design`. This keeps the slide tweakable from the Design panel after generation, which is what the user almost always wants. Only skip the `design` const for a one-off slide whose palette is intentionally locked and not meant to be re-themed — in that case, fall back to the local `palette` constants pattern. The "Design system" section of `slide-authoring` covers the format and available tokens.
 
 If the `frontend-design` skill is available, consult it for deeper aesthetic guidance when the user wants something bold.
 
-## Step 6 — Write `slides/<id>/index.tsx`
+## Step 6 — Write the modular deck
 
-Read the **`slide-authoring`** skill before writing — it covers the file contract, canvas rules, type scale, spacing, and asset imports, and it includes a starter template you can copy. Don't duplicate that knowledge here; use it.
+Create:
 
+```text
+slides/<id>/
+├── index.tsx                 # meta, design, notes, export default [pages…]
+├── slides/
+│   ├── slide_01.tsx          # one Page export each
+│   └── …
+├── components/               # shared header/footer/theme as needed
+│   └── theme.ts
+└── assets/                   # optional
+```
+
+Read the **`slide-authoring`** skill before writing — it covers the file contract, canvas rules, type scale, spacing, and asset imports. Don't duplicate that knowledge here; use it.
+
+Register every page in `index.tsx` in display order. Do not rely on filenames for order.
 ## Step 7 — Self-review
 
 Run the checklist in `slide-authoring` ("Self-review before finishing"). It covers structural correctness, layout discipline, and asset existence.

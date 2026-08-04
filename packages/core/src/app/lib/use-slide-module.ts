@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { normalizeSlideModule } from './normalize-slide-module.ts';
 import type { SlideModule } from './sdk';
 import { loadSlide, slideChangeIncludes } from './slides';
 
@@ -14,7 +15,14 @@ export function useSlideModule(slideId: string) {
       setError(null);
       loadSlide(slideId)
         .then((mod) => {
-          if (seq === loadSeqRef.current) setSlide(mod);
+          if (seq !== loadSeqRef.current) return;
+          const normalized = normalizeSlideModule(mod);
+          if (!normalized.ok) {
+            setSlide(null);
+            setError(normalized.error);
+            return;
+          }
+          setSlide(normalized.module);
         })
         .catch((e) => {
           if (seq === loadSeqRef.current) setError(String(e?.message ?? e));

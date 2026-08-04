@@ -3,14 +3,15 @@ import type { ViteDevServer } from 'vite';
 import { applyEdit, type EditOp } from '../../editing/edit-ops.ts';
 import { applyRevertAsset } from '../../editing/revert-asset.ts';
 import { validateMutationRequest } from '../../http/request-guard.ts';
-import { type ApiContext, json, readBody, resolveSlideEntryPath } from './context.ts';
+import { type ApiContext, json, readBody, resolveSlideSourcePath } from './context.ts';
 
-// POST /__edit                applyEdit({ slideId, line, column, ops })
-// POST /__edit/revert-asset   applyRevertAsset({ slideId, assetPath })
-// POST /__edit/batch          applyEdit × N — single FS write per request
+// POST /__edit                applyEdit({ slideId, file?, line, column, ops })
+// POST /__edit/revert-asset   applyRevertAsset({ slideId, file?, assetPath })
+// POST /__edit/batch          applyEdit × N — grouped by file
 
 type EditBody = {
   slideId?: string;
+  file?: string;
   line?: number;
   column?: number;
   ops?: EditOp[];
@@ -18,7 +19,7 @@ type EditBody = {
 
 type EditBatchBody = {
   slideId?: string;
-  edits?: Array<{ line?: number; column?: number; ops?: EditOp[] }>;
+  edits?: Array<{ file?: string; line?: number; column?: number; ops?: EditOp[] }>;
 };
 
 export function registerEditRoutes(server: ViteDevServer, ctx: ApiContext): void {
@@ -33,8 +34,8 @@ export function registerEditRoutes(server: ViteDevServer, ctx: ApiContext): void
       if (url.pathname === '/') {
         const body = (await readBody(req)) as EditBody;
         const slideId = body.slideId ?? '';
-        const file = resolveSlideEntryPath(ctx, slideId);
-        if (!file) return json(res, 400, { error: 'invalid slideId' });
+        const file = resolveSlideSourcePath(ctx, slideId, body.file);
+        if (!file) return json(res, 400, { error: 'invalid slideId or file' });
         if (!body.line || body.line < 1) return json(res, 400, { error: 'invalid line' });
         if (!Array.isArray(body.ops)) return json(res, 400, { error: 'missing ops' });
 
@@ -53,11 +54,15 @@ export function registerEditRoutes(server: ViteDevServer, ctx: ApiContext): void
       }
 
       if (url.pathname === '/revert-asset') {
-        const body = (await readBody(req)) as { slideId?: string; assetPath?: string };
+        const body = (await readBody(req)) as {
+          slideId?: string;
+          file?: string;
+          assetPath?: string;
+        };
         const slideId = body.slideId ?? '';
         const assetPath = body.assetPath;
-        const file = resolveSlideEntryPath(ctx, slideId);
-        if (!file) return json(res, 400, { error: 'invalid slideId' });
+        const file = resolveSlideSourcePath(ctx, slideId, body.file);
+        if (!file) return json(res, 400, { error: 'invalid slideId or file' });
         if (typeof assetPath !== 'string' || !assetPath) {
           return json(res, 400, { error: 'missing assetPath' });
         }
@@ -79,40 +84,63 @@ export function registerEditRoutes(server: ViteDevServer, ctx: ApiContext): void
         return json(res, 200, { ok: true, changed });
       }
 
-      // One read-modify-write per batch so a multi-element edit session
-      // lands as a single HMR. Per-edit failures are reported but don't
-      // abort the batch.
+      // One read-modify-write per source file so a multi-element edit session
+      // lands as few HMR ticks as possible. Per-edit failures are reported but
+      // don't abort the batch.
       if (url.pathname === '/batch') {
         const body = (await readBody(req)) as EditBatchBody;
         const slideId = body.slideId ?? '';
-        const file = resolveSlideEntryPath(ctx, slideId);
-        if (!file) return json(res, 400, { error: 'invalid slideId' });
         if (!Array.isArray(body.edits)) return json(res, 400, { error: 'missing edits' });
 
-        let source: string;
-        try {
-          source = await fs.readFile(file, 'utf8');
-        } catch {
-          return json(res, 404, { error: 'slide not found' });
-        }
+        type FileBucket = {
+          abs: string;
+          source: string;
+          original: string;
+          indices: number[];
+        };
+        const byFile = new Map<string, FileBucket>();
+        const results: Array<{ ok: boolean; error?: string }> = new Array(body.edits.length);
 
-        const original = source;
-        const results: Array<{ ok: boolean; error?: string }> = [];
-        for (const edit of body.edits) {
+        for (let i = 0; i < body.edits.length; i++) {
+          const edit = body.edits[i];
           if (!edit.line || edit.line < 1 || !Array.isArray(edit.ops)) {
-            results.push({ ok: false, error: 'invalid edit' });
+            results[i] = { ok: false, error: 'invalid edit' };
             continue;
           }
-          const r = applyEdit(source, edit.line, edit.column ?? 0, edit.ops);
+          const abs = resolveSlideSourcePath(ctx, slideId, edit.file);
+          if (!abs) {
+            results[i] = { ok: false, error: 'invalid slideId or file' };
+            continue;
+          }
+          let bucket = byFile.get(abs);
+          if (!bucket) {
+            let source: string;
+            try {
+              source = await fs.readFile(abs, 'utf8');
+            } catch {
+              results[i] = { ok: false, error: 'slide not found' };
+              continue;
+            }
+            bucket = { abs, source, original: source, indices: [] };
+            byFile.set(abs, bucket);
+          }
+          bucket.indices.push(i);
+          const r = applyEdit(bucket.source, edit.line, edit.column ?? 0, edit.ops);
           if (r.ok) {
-            source = r.source;
-            results.push({ ok: true });
+            bucket.source = r.source;
+            results[i] = { ok: true };
           } else {
-            results.push({ ok: false, error: r.error });
+            results[i] = { ok: false, error: r.error };
           }
         }
-        const changed = source !== original;
-        if (changed) await fs.writeFile(file, source, 'utf8');
+
+        let changed = false;
+        for (const bucket of byFile.values()) {
+          if (bucket.source !== bucket.original) {
+            await fs.writeFile(bucket.abs, bucket.source, 'utf8');
+            changed = true;
+          }
+        }
         return json(res, 200, { ok: true, changed, results });
       }
 

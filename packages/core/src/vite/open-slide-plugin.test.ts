@@ -13,9 +13,9 @@ async function withSlidesRoot<T>(fn: (root: string) => Promise<T>): Promise<T> {
   }
 }
 
-async function writeSlide(root: string, id: string): Promise<string> {
+async function writeSlide(root: string, id: string, entryName = 'index.tsx'): Promise<string> {
   await fs.mkdir(path.join(root, id), { recursive: true });
-  const entry = path.join(root, id, 'index.tsx');
+  const entry = path.join(root, id, entryName);
   await fs.writeFile(
     entry,
     `export const meta = { title: '${id}' };\nexport default [];\n`,
@@ -45,6 +45,21 @@ describe('generateSlidesModule', () => {
       expect(ignored).toEqual(['推薦系統']);
       expect(code).toContain('export const slideIds = ["cover"];');
       expect(code).not.toContain('推薦系統');
+    });
+  });
+
+  it('loads modular decks via index.tsx', async () => {
+    await withSlidesRoot(async (root) => {
+      const entry = await writeSlide(root, 'modular', 'index.tsx');
+      await fs.mkdir(path.join(root, 'modular', 'slides'), { recursive: true });
+      await fs.writeFile(
+        path.join(root, 'modular', 'slides', 'slide_01.tsx'),
+        'export const Slide01 = () => null;',
+        'utf8',
+      );
+      const { code, ignored } = await generateSlidesModule([entry], root, false);
+      expect(ignored).toEqual([]);
+      expect(code).toContain('modular');
     });
   });
 });

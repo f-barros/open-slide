@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type SlideComment = {
   id: string;
+  file?: string;
   line: number;
   ts: string;
   note: string;
@@ -31,11 +32,11 @@ export function useComments(slideId: string) {
   }, [slideId]);
 
   const add = useCallback(
-    async (line: number, column: number, text: string) => {
+    async (line: number, column: number, text: string, file?: string | null) => {
       const res = await fetch('/__comments/add', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ slideId, line, column, text }),
+        body: JSON.stringify({ slideId, file: file ?? undefined, line, column, text }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -47,8 +48,10 @@ export function useComments(slideId: string) {
   );
 
   const remove = useCallback(
-    async (id: string) => {
-      const res = await fetch(`/__comments/${id}?slideId=${encodeURIComponent(slideId)}`, {
+    async (id: string, file?: string | null) => {
+      const qs = new URLSearchParams({ slideId });
+      if (file) qs.set('file', file);
+      const res = await fetch(`/__comments/${id}?${qs}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(`DELETE /__comments/${id} → ${res.status}`);

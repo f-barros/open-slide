@@ -185,7 +185,7 @@ export function registerSlideRoutes(server: ViteDevServer, ctx: ApiContext): voi
         const updated = updateMetaTitleInSource(source, name);
         if (updated === null) {
           return json(res, 422, {
-            error: 'could not locate a safe place to write meta.title in index.tsx',
+            error: 'could not locate a safe place to write meta.title in the deck entry',
           });
         }
         if (updated !== source) {

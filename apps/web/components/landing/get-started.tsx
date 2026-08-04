@@ -32,7 +32,7 @@ export function GetStarted() {
             style={{ '--reveal-delay': '180ms' } as CSSProperties}
             className="flex flex-wrap items-center gap-4"
           >
-            <CopyCommand command="npx @open-slide/cli init" />
+            <CopyCommand command="npx @comp-slide/cli init" />
             <Link
               href="/docs"
               className="group inline-flex h-[48px] sm:h-[52px] items-center gap-2 px-2 text-[14px] font-medium text-[color:var(--color-muted)] transition-colors hover:text-[color:var(--color-text)]"

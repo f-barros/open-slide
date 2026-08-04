@@ -6,7 +6,7 @@ description: Spin up your first deck in under a minute.
 ## Install
 
 ```npm
-npx @open-slide/cli init my-deck
+npx @comp-slide/cli init my-deck
 cd my-deck
 npm run dev
 ```
@@ -17,7 +17,11 @@ The scaffolder generates a workspace (abridged — see
 ```text
 my-deck/
 ├── slides/
-│   └── getting-started/    # your first slide
+│   └── getting-started/
+│       ├── index.tsx          # entry — page order
+│       ├── slides/            # one file per page
+│       ├── components/        # shared chrome + theme
+│       └── assets/
 ├── themes/                 # shared design systems
 ├── .agents/skills/         # bundled agent skills
 ├── open-slide.config.ts    # framework config

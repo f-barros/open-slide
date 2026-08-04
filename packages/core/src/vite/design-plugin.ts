@@ -249,7 +249,7 @@ function ensureDesignSystemImport(
   ast: AstNode,
 ): { source: string; offsetShift: number } {
   const imports = findImports(ast);
-  const coreImport = imports.find((imp) => imp.source === '@open-slide/core');
+  const coreImport = imports.find((imp) => imp.source === '@comp-slide/core');
   if (coreImport) {
     const hasDesignSystem = coreImport.specifiers.some((spec) => {
       if (spec.type !== 'ImportSpecifier') return false;
@@ -271,8 +271,8 @@ function ensureDesignSystemImport(
     return { source: next, offsetShift: insertText.length };
   }
 
-  // No @open-slide/core import — add one after the last import (or at top).
-  const stmt = `import type { DesignSystem } from '@open-slide/core';\n`;
+  // No @comp-slide/core import — add one after the last import (or at top).
+  const stmt = `import type { DesignSystem } from '@comp-slide/core';\n`;
   if (imports.length > 0) {
     const last = imports[imports.length - 1];
     const insertAt = last.node.end;

@@ -29,14 +29,14 @@ function expectTaggedTransform(id: string) {
 describe('injectLocTags', () => {
   it('adds data-slide-loc to host elements with the JSX start position', () => {
     const src = ['export default [() => (', '  <div>hello</div>', ')];', ''].join('\n');
-    const out = injectLocTags(src);
+    const out = injectLocTags(src, 'index.tsx');
     if (out === null) throw new Error('expected transform');
-    expect(out).toContain('<div data-slide-loc="2:2">hello</div>');
+    expect(out).toContain('<div data-slide-loc="index.tsx:2:2">hello</div>');
   });
 
   it('skips capitalized component invocations', () => {
     const src = ['export default [() => (', '  <MyComp>hi</MyComp>', ')];', ''].join('\n');
-    const out = injectLocTags(src);
+    const out = injectLocTags(src, 'index.tsx');
     expect(out).toBeNull();
   });
 
@@ -50,36 +50,36 @@ describe('injectLocTags', () => {
       ')];',
       '',
     ].join('\n');
-    const out = injectLocTags(src);
+    const out = injectLocTags(src, 'slides/a.tsx');
     if (out === null) throw new Error('expected transform');
-    expect(out).toContain('<div data-slide-loc="2:2">');
-    expect(out).toContain('<h1 data-slide-loc="3:4">Hi</h1>');
-    expect(out).toContain('<p data-slide-loc="4:4">World</p>');
+    expect(out).toContain('<div data-slide-loc="slides/a.tsx:2:2">');
+    expect(out).toContain('<h1 data-slide-loc="slides/a.tsx:3:4">Hi</h1>');
+    expect(out).toContain('<p data-slide-loc="slides/a.tsx:4:4">World</p>');
   });
 
   it('skips elements that already have data-slide-loc', () => {
     const src = [
       'export default [() => (',
-      '  <div data-slide-loc="2:2">already</div>',
+      '  <div data-slide-loc="index.tsx:2:2">already</div>',
       ')];',
       '',
     ].join('\n');
-    const out = injectLocTags(src);
+    const out = injectLocTags(src, 'index.tsx');
     expect(out).toBeNull();
   });
 
   it('inserts after the tag name, before any other attributes', () => {
     const src = ['export default [() => (', '  <div className="foo">x</div>', ')];', ''].join('\n');
-    const out = injectLocTags(src);
+    const out = injectLocTags(src, 'index.tsx');
     if (out === null) throw new Error('expected transform');
-    expect(out).toContain('<div data-slide-loc="2:2" className="foo">x</div>');
+    expect(out).toContain('<div data-slide-loc="index.tsx:2:2" className="foo">x</div>');
   });
 
   it('handles self-closing host elements', () => {
     const src = ['export default [() => (', '  <img src="x" />', ')];', ''].join('\n');
-    const out = injectLocTags(src);
+    const out = injectLocTags(src, 'index.tsx');
     if (out === null) throw new Error('expected transform');
-    expect(out).toContain('<img data-slide-loc="2:2" src="x" />');
+    expect(out).toContain('<img data-slide-loc="index.tsx:2:2" src="x" />');
   });
 
   it('returns null when source has no host elements', () => {

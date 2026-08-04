@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import { useHistory } from '@/components/history-provider';
 import { Button } from '@/components/ui/button';
+import { formatSlideLoc, parseSlideLoc, slideLocKey } from '@/lib/inspector/slide-loc';
 import { type SlideComment, useComments } from '@/lib/inspector/use-comments';
 import { type Edit, type EditOp, type EditResult, useEditor } from '@/lib/inspector/use-editor';
 import { useLocale } from '@/lib/use-locale';
@@ -19,6 +20,7 @@ import { AssetPickerDialog } from './asset-picker-dialog';
 import { ImageCropDialog, type ImageCropRect } from './image-crop-dialog';
 
 export type SelectedTarget = {
+  file?: string | null;
   line: number;
   column: number;
   anchor: HTMLElement;
@@ -37,6 +39,7 @@ type TextRangeStyleOp = {
 };
 
 type Bucket = {
+  file: string | null;
   line: number;
   column: number;
   styleOps: Map<string, Sequenced<StyleOp>>;
@@ -249,16 +252,22 @@ type InspectorCtx = {
   comments: SlideComment[];
   error: string | null;
   refetch: () => Promise<void>;
-  add: (line: number, column: number, text: string) => Promise<void>;
-  remove: (id: string) => Promise<void>;
+  add: (line: number, column: number, text: string, file?: string | null) => Promise<void>;
+  remove: (id: string, file?: string | null) => Promise<void>;
   selected: SelectedTarget | null;
   setSelected: (s: SelectedTarget | null) => void;
-  applyEdit: (line: number, column: number, ops: EditOp[]) => Promise<void>;
+  applyEdit: (line: number, column: number, ops: EditOp[], file?: string | null) => Promise<void>;
   applyEdits: (edits: Edit[]) => Promise<EditResult[]>;
   // Mutate the DOM optimistically, snapshot the pre-edit values, and
   // remember the ops. `commitEdits` (manual Save or auto-flush on
   // close) is what actually writes to disk; `cancelEdits` reverts.
-  bufferOps: (line: number, column: number, anchor: HTMLElement, ops: EditOp[]) => void;
+  bufferOps: (
+    line: number,
+    column: number,
+    anchor: HTMLElement,
+    ops: EditOp[],
+    file?: string | null,
+  ) => void;
   pendingCount: number;
   commitEdits: () => Promise<void>;
   cancelEdits: () => void;
@@ -296,6 +305,7 @@ export function InspectorProvider({
   const [pendingCount, setPendingCount] = useState(0);
   const [committing, setCommitting] = useState(false);
   const [cropTarget, setCropTarget] = useState<{
+    file: string | null;
     line: number;
     column: number;
     anchor: HTMLImageElement;
@@ -307,6 +317,7 @@ export function InspectorProvider({
     initialRect: ImageCropRect | null;
   } | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<{
+    file: string | null;
     line: number;
     column: number;
     anchor: HTMLElement;
@@ -340,24 +351,35 @@ export function InspectorProvider({
   // since the original `anchor` reference may have unmounted. With an
   // instance id, prefer the matching DOM node so per-instance text edits
   // round-trip onto the right element.
-  const findAnchor = useCallback((line: number, column: number, instanceId?: string) => {
-    const root = document.querySelector<HTMLElement>('[data-inspector-root]');
-    if (!root) return null;
-    if (instanceId) {
-      const byInstance = root.querySelector<HTMLElement>(`[${INSTANCE_ID_ATTR}="${instanceId}"]`);
-      if (byInstance) return byInstance;
-    }
-    return root.querySelector<HTMLElement>(`[data-slide-loc="${line}:${column}"]`);
-  }, []);
+  const findAnchor = useCallback(
+    (line: number, column: number, instanceId?: string, file?: string | null) => {
+      const root = document.querySelector<HTMLElement>('[data-inspector-root]');
+      if (!root) return null;
+      if (instanceId) {
+        const byInstance = root.querySelector<HTMLElement>(`[${INSTANCE_ID_ATTR}="${instanceId}"]`);
+        if (byInstance) return byInstance;
+      }
+      const loc = formatSlideLoc(file, line, column);
+      return root.querySelector<HTMLElement>(`[data-slide-loc="${loc}"]`);
+    },
+    [],
+  );
 
   // Mutate bucket + DOM without recording history. Shared by `bufferOps`
   // (the public, history-recording entry point) and by `redo` closures.
   const applyOpsRaw = useCallback(
-    (line: number, column: number, anchor: HTMLElement | null, ops: EditOp[]) => {
-      const key = `${line}:${column}`;
+    (
+      line: number,
+      column: number,
+      anchor: HTMLElement | null,
+      ops: EditOp[],
+      file?: string | null,
+    ) => {
+      const key = slideLocKey(file, line, column);
       let bucket = pendingRef.current.get(key);
       if (!bucket) {
         bucket = {
+          file: file ?? null,
           line,
           column,
           styleOps: new Map(),
@@ -465,8 +487,14 @@ export function InspectorProvider({
   type Snap = StyleSnap | RangeStyleSnap | TextSnap | AttrSnap;
 
   const snapshotForOps = useCallback(
-    (line: number, column: number, anchor: HTMLElement, ops: EditOp[]): Snap[] => {
-      const key = `${line}:${column}`;
+    (
+      line: number,
+      column: number,
+      anchor: HTMLElement,
+      ops: EditOp[],
+      file?: string | null,
+    ): Snap[] => {
+      const key = slideLocKey(file, line, column);
       const bucket = pendingRef.current.get(key);
       const style = anchor.style as unknown as Record<string, string>;
       const snaps: Snap[] = [];
@@ -543,13 +571,13 @@ export function InspectorProvider({
   // Restore the snapshotted values to bucket + DOM. Mirrors the bucket-empty
   // logic of `cancelEdits` so an undo back to the absolute baseline cleans up.
   const restoreSnapshot = useCallback(
-    (line: number, column: number, snaps: Snap[]) => {
-      const key = `${line}:${column}`;
+    (line: number, column: number, snaps: Snap[], file?: string | null) => {
+      const key = slideLocKey(file, line, column);
       const bucket = pendingRef.current.get(key);
       if (!bucket) return;
       // Style/attr snaps share the loc-level anchor (first match);
       // text snaps look up their per-instance node below.
-      const sharedAnchor = findAnchor(line, column);
+      const sharedAnchor = findAnchor(line, column, undefined, file);
       const sharedStyle = (sharedAnchor?.style ?? {}) as unknown as Record<string, string>;
       for (const snap of snaps) {
         if (snap.kind === 'style') {
@@ -625,14 +653,14 @@ export function InspectorProvider({
   );
 
   const bufferOps = useCallback(
-    (line: number, column: number, anchor: HTMLElement, ops: EditOp[]) => {
+    (line: number, column: number, anchor: HTMLElement, ops: EditOp[], file?: string | null) => {
       const instanceId = ops.some(
         (op) => op.kind === 'set-text' || op.kind === 'set-text-range-style',
       )
         ? ensureInstanceId(anchor)
         : undefined;
-      const snaps = snapshotForOps(line, column, anchor, ops);
-      applyOpsRaw(line, column, anchor, ops);
+      const snaps = snapshotForOps(line, column, anchor, ops, file);
+      applyOpsRaw(line, column, anchor, ops, file);
       const first = ops[0];
       const opKey = first
         ? first.kind === 'set-style'
@@ -641,11 +669,13 @@ export function InspectorProvider({
             ? first.attr
             : 'text'
         : 'noop';
-      const coalesceKey = `inspector:${line}:${column}:${first?.kind ?? 'noop'}:${opKey}`;
+      const locKey = slideLocKey(file, line, column);
+      const coalesceKey = `inspector:${locKey}:${first?.kind ?? 'noop'}:${opKey}`;
       history.record({
         coalesceKey,
-        undo: () => restoreSnapshot(line, column, snaps),
-        redo: () => applyOpsRaw(line, column, findAnchor(line, column, instanceId), ops),
+        undo: () => restoreSnapshot(line, column, snaps, file),
+        redo: () =>
+          applyOpsRaw(line, column, findAnchor(line, column, instanceId, file), ops, file),
       });
     },
     [applyOpsRaw, snapshotForOps, restoreSnapshot, findAnchor, history, ensureInstanceId],
@@ -662,12 +692,13 @@ export function InspectorProvider({
     };
     const pending: PendingItem[] = [];
     for (const [key, bucket] of buckets) {
-      const { line, column, styleOps, rangeStyleOps, textOps, attrOps, origTexts } = bucket;
+      const { file, line, column, styleOps, rangeStyleOps, textOps, attrOps, origTexts } = bucket;
       for (const [k, op] of styleOps) {
         pending.push({
           key,
           seq: op.seq,
           edit: {
+            file,
             line,
             column,
             ops: [{ kind: 'set-style', key: k, value: op.value, prevText: op.prevText }],
@@ -682,6 +713,7 @@ export function InspectorProvider({
           key,
           seq: op.seq,
           edit: {
+            file,
             line,
             column,
             ops: [
@@ -703,6 +735,7 @@ export function InspectorProvider({
           key,
           seq: op.seq,
           edit: {
+            file,
             line,
             column,
             ops: [
@@ -729,6 +762,7 @@ export function InspectorProvider({
           key,
           seq: textOp.seq,
           edit: {
+            file,
             line,
             column,
             ops: [{ kind: 'set-text', value: textOp.value, prevText: orig?.value }],
@@ -789,7 +823,9 @@ export function InspectorProvider({
     }
     const root = document.querySelector<HTMLElement>('[data-inspector-root]');
     for (const b of pendingRef.current.values()) {
-      const sharedEl = root?.querySelector<HTMLElement>(`[data-slide-loc="${b.line}:${b.column}"]`);
+      const sharedEl = root?.querySelector<HTMLElement>(
+        `[data-slide-loc="${formatSlideLoc(b.file, b.line, b.column)}"]`,
+      );
       if (sharedEl) {
         const style = sharedEl.style as unknown as Record<string, string>;
         for (const [k, v] of b.origStyle) style[k] = v;
@@ -902,7 +938,7 @@ export function InspectorProvider({
     const revalidate = () => {
       if (selected.anchor.isConnected) return;
       const next = root.querySelector<HTMLElement>(
-        `[data-slide-loc="${selected.line}:${selected.column}"]`,
+        `[data-slide-loc="${formatSlideLoc(selected.file, selected.line, selected.column)}"]`,
       );
       if (next && next !== selected.anchor) {
         setSelected({ ...selected, anchor: next });
@@ -930,11 +966,14 @@ export function InspectorProvider({
   const openReplace = useCallback((anchor: HTMLElement) => {
     const loc = anchor.dataset.slideLoc;
     if (!loc) return;
-    const [lineStr, columnStr] = loc.split(':');
-    const line = Number(lineStr);
-    const column = Number(columnStr);
-    if (!Number.isFinite(line) || !Number.isFinite(column)) return;
-    setReplaceTarget({ line, column, anchor });
+    const parsed = parseSlideLoc(loc);
+    if (!parsed) return;
+    setReplaceTarget({
+      file: parsed.file,
+      line: parsed.line,
+      column: parsed.column,
+      anchor,
+    });
   }, []);
 
   useEffect(() => {
@@ -951,14 +990,13 @@ export function InspectorProvider({
   const openCrop = useCallback((anchor: HTMLImageElement) => {
     const loc = anchor.dataset.slideLoc;
     if (!loc) return;
-    const [lineStr, columnStr] = loc.split(':');
-    const line = Number(lineStr);
-    const column = Number(columnStr);
-    if (!Number.isFinite(line) || !Number.isFinite(column)) return;
+    const parsed = parseSlideLoc(loc);
+    if (!parsed) return;
     const cs = window.getComputedStyle(anchor);
     setCropTarget({
-      line,
-      column,
+      file: parsed.file,
+      line: parsed.line,
+      column: parsed.column,
       anchor,
       src: anchor.currentSrc || anchor.src,
       targetWidth: anchor.offsetWidth || anchor.getBoundingClientRect().width,
@@ -1023,7 +1061,7 @@ export function InspectorProvider({
           slideId={slideId}
           onClose={() => setReplaceTarget(null)}
           onPick={(asset, scope) => {
-            const { line, column, anchor } = replaceTarget;
+            const { line, column, file, anchor } = replaceTarget;
             const assetPath =
               scope === 'global' ? `@assets/${asset.name}` : `./assets/${asset.name}`;
             const ops: EditOp[] = [
@@ -1044,7 +1082,7 @@ export function InspectorProvider({
                 ops.push({ kind: 'set-style', key: 'objectPosition', value: '50% 50%' });
               }
             }
-            bufferOps(line, column, anchor, ops);
+            bufferOps(line, column, anchor, ops, file);
             setReplaceTarget(null);
           }}
         />
@@ -1059,7 +1097,7 @@ export function InspectorProvider({
           initialRect={cropTarget.initialRect}
           onClose={() => setCropTarget(null)}
           onApply={(result) => {
-            const { line, column, anchor } = cropTarget;
+            const { line, column, file, anchor } = cropTarget;
             if (anchor.isConnected) {
               const ops: EditOp[] = [
                 { kind: 'set-style', key: 'objectFit', value: result.fit },
@@ -1079,7 +1117,7 @@ export function InspectorProvider({
               } else {
                 ops.push({ kind: 'set-style', key: 'objectViewBox', value: null });
               }
-              bufferOps(line, column, anchor, ops);
+              bufferOps(line, column, anchor, ops, file);
             }
             setCropTarget(null);
           }}

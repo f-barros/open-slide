@@ -1,6 +1,7 @@
 import type { ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Connect } from 'vite';
+import { resolveSlideEntry, resolveSlideSourceFile } from '../../editing/slide-entry.ts';
 import { SLIDE_ID_RE } from '../../editing/slide-ops.ts';
 
 export type ApiContext = {
@@ -63,14 +64,21 @@ export function resolveSlidePath(
   userCwd: string,
   slidesDir: string,
   slideId: string,
+  relFile?: string | null,
 ): string | null {
   if (!SLIDE_ID_RE.test(slideId)) return null;
   const slidesRoot = path.resolve(userCwd, slidesDir);
-  const full = path.resolve(slidesRoot, slideId, 'index.tsx');
-  if (!full.startsWith(slidesRoot + path.sep)) return null;
-  return full;
+  return resolveSlideSourceFile(slidesRoot, slideId, relFile);
 }
 
 export function resolveSlideEntryPath(ctx: ApiContext, slideId: string): string | null {
-  return resolveSlidePath(ctx.userCwd, ctx.slidesDir, slideId);
+  return resolveSlideEntry(ctx.slidesRoot, slideId);
+}
+
+export function resolveSlideSourcePath(
+  ctx: ApiContext,
+  slideId: string,
+  relFile?: string | null,
+): string | null {
+  return resolveSlideSourceFile(ctx.slidesRoot, slideId, relFile);
 }

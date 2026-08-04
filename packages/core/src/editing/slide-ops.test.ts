@@ -151,7 +151,7 @@ describe('updateMetaTitleInSource', () => {
 });
 
 describe('reorderDefaultExportPagesInSource', () => {
-  const withSatisfies = `import type { Page } from '@open-slide/core';
+  const withSatisfies = `import type { Page } from '@comp-slide/core';
 const A = () => null;
 const B = () => null;
 const C = () => null;
@@ -174,7 +174,7 @@ export default [A, B, C];
     expect(out).not.toBeNull();
     expect(out).toContain('export default [\n  C,\n  A,\n  B,\n] satisfies Page[];');
     // surrounding source untouched
-    expect(out).toContain("import type { Page } from '@open-slide/core';");
+    expect(out).toContain("import type { Page } from '@comp-slide/core';");
     expect(out).toContain("export const meta = { title: 't' };");
   });
 
@@ -310,7 +310,7 @@ describe('reorderNotesArrayInSource', () => {
 });
 
 describe('removePageFromDefaultExportInSource', () => {
-  const multiline = `import type { Page } from '@open-slide/core';
+  const multiline = `import type { Page } from '@comp-slide/core';
 const A = () => null;
 const B = () => null;
 const C = () => null;
@@ -366,7 +366,7 @@ export default [A, B, C];
 });
 
 describe('duplicatePageInDefaultExportInSource', () => {
-  const multiline = `import type { Page } from '@open-slide/core';
+  const multiline = `import type { Page } from '@comp-slide/core';
 const A = () => null;
 const B = () => null;
 const C = () => null;

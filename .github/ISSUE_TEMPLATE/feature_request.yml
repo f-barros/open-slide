@@ -28,8 +28,8 @@ body:
       label: Which package would this affect?
       multiple: true
       options:
-        - "@open-slide/core (runtime, inspector, present mode, CLI)"
-        - "@open-slide/cli (scaffolder / template)"
+        - "@comp-slide/core (runtime, inspector, present mode, CLI)"
+        - "@comp-slide/cli (scaffolder / template)"
         - Agent skills (create-slide, slide-authoring, apply-comments)
         - Docs / marketing site
         - Not sure

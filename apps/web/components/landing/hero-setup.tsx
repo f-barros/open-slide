@@ -7,15 +7,15 @@ import { useEffect, useRef, useState } from 'react';
 const setupOptions = {
   you: {
     label: 'For you',
-    displayContent: 'npx @open-slide/cli init',
-    content: 'npx @open-slide/cli init',
+    displayContent: 'npx @comp-slide/cli init',
+    content: 'npx @comp-slide/cli init',
     copyLabel: 'Copy setup command',
   },
   agent: {
     label: 'For your agent',
     displayContent: 'Copy Prompt',
     content:
-      'Set up an open-slide workspace with `npx @open-slide/cli init`. Install the dependencies, start the dev server, and tell me the local URL when it is ready.',
+      'Set up an open-slide workspace with `npx @comp-slide/cli init`. Install the dependencies, start the dev server, and tell me the local URL when it is ready.',
     copyLabel: 'Copy agent setup prompt',
   },
 } as const;

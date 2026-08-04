@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import fg from 'fast-glob';
 import { loadConfigFromFile, normalizePath, type Plugin, type ViteDevServer } from 'vite';
 import type { OpenSlideConfig } from '../config.ts';
+import { findSlideEntries, isSlideEntryPath, slideIdForPath } from '../editing/slide-entry.ts';
 import { SLIDE_ID_RE } from '../editing/slide-ops.ts';
 import { hasRecentWrite } from './recent-writes.ts';
 
@@ -47,17 +47,6 @@ async function readFoldersManifest(file: string): Promise<FoldersManifest> {
 
 function resolved(id: string): string {
   return `\0${id}`;
-}
-
-async function findSlides(userCwd: string, slidesDir: string): Promise<string[]> {
-  const abs = path.resolve(userCwd, slidesDir);
-  if (!existsSync(abs)) return [];
-  const hits = await fg('*/index.{tsx,jsx,ts,js}', {
-    cwd: abs,
-    absolute: true,
-    onlyFiles: true,
-  });
-  return hits.sort();
 }
 
 function toId(absFile: string, slidesRoot: string): string {
@@ -134,7 +123,7 @@ export async function generateSlidesModule(
     }),
   );
 
-  // Discovery globs every `slides/*/index.*`, but a slide id is used in URLs,
+  // Discovery finds each deck's `index.*` entry, but a slide id is used in URLs,
   // filesystem paths, and the editing routes — all guarded by SLIDE_ID_RE. Drop
   // folders with an unusable id instead of listing them as slides that then fail
   // every folder/edit action; `load` warns about each ignored folder.
@@ -197,14 +186,6 @@ export function openSlidePlugin(opts: OpenSlidePluginOptions): Plugin {
   const foldersManifestPath = path.join(slidesRoot, '.folders.json');
 
   let isDev = false;
-  const slideIdForEntry = (p: string): string | null => {
-    const rel = path.relative(slidesRoot, p);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) return null;
-    const parts = rel.split(path.sep);
-    if (parts.length !== 2) return null;
-    if (!/^index\.(tsx|jsx|ts|js)$/.test(parts[1])) return null;
-    return parts[0];
-  };
   let slideChangeTimer: ReturnType<typeof setTimeout> | null = null;
   const pendingSlideChanges = new Set<string>();
   const queueSlideChanged = (server: ViteDevServer, id: string) => {
@@ -240,7 +221,7 @@ export function openSlidePlugin(opts: OpenSlidePluginOptions): Plugin {
     },
     async load(id) {
       if (id === resolved(SLIDES_VMOD)) {
-        const files = await findSlides(userCwd, slidesDir);
+        const files = await findSlideEntries(slidesRoot);
         const { code, ignored } = await generateSlidesModule(files, slidesRoot, isDev);
         for (const slideId of ignored) {
           if (warnedInvalidSlideIds.has(slideId)) continue;
@@ -270,7 +251,7 @@ export function openSlidePlugin(opts: OpenSlidePluginOptions): Plugin {
       return null;
     },
     handleHotUpdate(ctx) {
-      const slideId = slideIdForEntry(ctx.file);
+      const slideId = slideIdForPath(slidesRoot, ctx.file);
       if (!slideId) return;
       // A speaker-note save writes the slide file itself. The notes plugin
       // records that write so we can recognise it here and skip the
@@ -282,8 +263,6 @@ export function openSlidePlugin(opts: OpenSlidePluginOptions): Plugin {
       return [];
     },
     configureServer(server) {
-      const isSlideEntry = (p: string) => slideIdForEntry(p) !== null;
-
       let reloadTimer: ReturnType<typeof setTimeout> | null = null;
       const reload = () => {
         if (reloadTimer) clearTimeout(reloadTimer);
@@ -300,10 +279,10 @@ export function openSlidePlugin(opts: OpenSlidePluginOptions): Plugin {
       // otherwise treat a glob pattern as a literal path.
       if (existsSync(slidesRoot)) server.watcher.add(slidesRoot);
       server.watcher.on('add', (p) => {
-        if (isSlideEntry(p)) reload();
+        if (isSlideEntryPath(slidesRoot, p)) reload();
       });
       server.watcher.on('unlink', (p) => {
-        if (isSlideEntry(p)) reload();
+        if (isSlideEntryPath(slidesRoot, p)) reload();
       });
 
       let foldersTimer: ReturnType<typeof setTimeout> | null = null;

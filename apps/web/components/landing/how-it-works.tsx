@@ -21,7 +21,7 @@ const steps: Step[] = [
     body: 'Creates the slide workspace. Every future deck you author lives inside it.',
     code: {
       prompt: '$',
-      line: 'npx @open-slide/cli init my-deck',
+      line: 'npx @comp-slide/cli init my-deck',
       tail: '✓ ready in 3s',
     },
   },

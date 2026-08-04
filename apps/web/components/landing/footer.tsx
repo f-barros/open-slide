@@ -34,15 +34,15 @@ export function Footer() {
         <FooterCol
           title="Packages"
           links={[
-            ['@open-slide/core', 'https://www.npmjs.com/package/@open-slide/core'],
-            ['@open-slide/cli', 'https://www.npmjs.com/package/@open-slide/cli'],
+            ['@comp-slide/core', 'https://www.npmjs.com/package/@comp-slide/core'],
+            ['@comp-slide/cli', 'https://www.npmjs.com/package/@comp-slide/cli'],
           ]}
         />
         <FooterCol
           title="Elsewhere"
           links={[
             ['GitHub', 'https://github.com/1weiho/open-slide'],
-            ['npm', 'https://www.npmjs.com/package/@open-slide/core'],
+            ['npm', 'https://www.npmjs.com/package/@comp-slide/core'],
             ['Issues', 'https://github.com/1weiho/open-slide/issues'],
           ]}
         />

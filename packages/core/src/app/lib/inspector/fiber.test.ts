@@ -63,9 +63,19 @@ describe('findSlideSource primary path', () => {
     const el = makeEl({ slideLoc: '42:7' });
     const hit = findSlideSource(el as unknown as HTMLElement, 'cover');
     expect(hit).not.toBeNull();
+    expect(hit?.file).toBeNull();
     expect(hit?.line).toBe(42);
     expect(hit?.column).toBe(7);
     expect(hit?.anchor).toBe(el as unknown as HTMLElement);
+  });
+
+  it('reads file:line:column from data-slide-loc', () => {
+    const el = makeEl({ slideLoc: 'slides/cover.tsx:42:7' });
+    const hit = findSlideSource(el as unknown as HTMLElement, 'cover');
+    expect(hit).not.toBeNull();
+    expect(hit?.file).toBe('slides/cover.tsx');
+    expect(hit?.line).toBe(42);
+    expect(hit?.column).toBe(7);
   });
 });
 

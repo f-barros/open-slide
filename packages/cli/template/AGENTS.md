@@ -4,8 +4,10 @@ You are authoring **slides** in this repo. Every slide is arbitrary React code t
 
 ## Hard rules
 
-- Put your slide under `slides/<kebab-case-id>/`.
-- The entry is `slides/<id>/index.tsx`.
+- Put your deck under `slides/<kebab-case-id>/`.
+- Entry is `slides/<id>/index.tsx` (sole deck root).
+- One page per file under `slides/<id>/slides/`. Register pages and order in `index.tsx`.
+- Put shared chrome (headers, footers, cards, theme tokens) under `slides/<id>/components/`.
 - Put slide-specific images/videos/fonts under `slides/<id>/assets/`. For assets reused across decks or themes (logos, avatars), use the global `assets/` folder and import via `@assets/...`.
 - Do **not** touch `package.json`, `open-slide.config.ts`, or other slides.
 - Do not add dependencies. Use only `react` and standard web APIs.
@@ -22,10 +24,10 @@ Keep this file short: hard rules only. All deeper guidance lives in the skills a
 
 ## Updating skills
 
-The skills above are managed by `@open-slide/core`. Do not edit them in place. To pull the latest versions:
+The skills above are managed by `@comp-slide/core`. Do not edit them in place. To pull the latest versions:
 
 ```
-pnpm up @open-slide/core
+pnpm up @comp-slide/core
 pnpm sync:skills
 ```
 

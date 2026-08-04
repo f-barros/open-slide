@@ -36,8 +36,8 @@ const jsonLd = [
     logo: `${siteUrl}/open-slide.png`,
     sameAs: [
       repoUrl,
-      'https://www.npmjs.com/package/@open-slide/core',
-      'https://www.npmjs.com/package/@open-slide/cli',
+      'https://www.npmjs.com/package/@comp-slide/core',
+      'https://www.npmjs.com/package/@comp-slide/cli',
     ],
   },
   {
@@ -82,7 +82,7 @@ const jsonLd = [
         '@type': 'HowToStep',
         position: 1,
         name: 'Spin up a workspace',
-        text: 'Run npx @open-slide/cli init my-deck to scaffold the slide workspace. Every future deck lives inside it.',
+        text: 'Run npx @comp-slide/cli init my-deck to scaffold the slide workspace. Every future deck lives inside it.',
       },
       {
         '@type': 'HowToStep',

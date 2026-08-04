@@ -6,13 +6,13 @@ import { validateMutationRequest } from '../../http/request-guard.ts';
 import { type ApiContext, json } from './context.ts';
 
 // GET /__update-check  → { current, latest, outdated }
-//   Compares the running @open-slide/core version against the npm `latest`
+//   Compares the running @comp-slide/core version against the npm `latest`
 //   dist-tag. Network/parse failures degrade to { latest: null, outdated: false }.
 // POST /__update-package → { packageManager, command, latest, message }
-//   Installs @open-slide/core@latest with the detected package manager, then
+//   Installs @comp-slide/core@latest with the detected package manager, then
 //   runs `open-slide sync:skills`.
 
-const PKG = '@open-slide/core';
+const PKG = '@comp-slide/core';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const COMMAND_TIMEOUT_MS = 300_000;
 
@@ -157,7 +157,7 @@ async function updatePackage(ctx: ApiContext): Promise<UpdateResult> {
     packageManager,
     command: `${formatCommand(updateCommand)} && open-slide sync:skills`,
     latest,
-    message: 'Updated @open-slide/core and synced skills.',
+    message: 'Updated @comp-slide/core and synced skills.',
   };
 }
 

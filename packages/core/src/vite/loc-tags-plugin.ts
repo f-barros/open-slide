@@ -2,9 +2,10 @@ import path from 'node:path';
 import { parse as babelParse } from '@babel/parser';
 import * as t from '@babel/types';
 import type { Plugin } from 'vite';
+import { formatSlideLoc } from '../app/lib/inspector/slide-loc.ts';
 import { walkJsx } from '../editing/babel-walk.ts';
 
-// Inject `data-slide-loc="<line>:<col>"` onto every host JSX element in
+// Inject `data-slide-loc="<file>:<line>:<col>"` onto every host JSX element in
 // slide source files so the inspector can map a click straight to a
 // source location, sidestepping HMR-stale `_debugSource` on fibers.
 
@@ -24,7 +25,7 @@ function alreadyTagged(opening: t.JSXOpeningElement): boolean {
   );
 }
 
-export function injectLocTags(code: string): string | null {
+export function injectLocTags(code: string, deckRelFile?: string | null): string | null {
   let ast: t.File;
   try {
     ast = babelParse(code, {
@@ -42,9 +43,10 @@ export function injectLocTags(code: string): string | null {
     const opening = node.openingElement;
     const name = opening.name;
     if (!isTaggableJsxName(name) || alreadyTagged(opening)) return;
+    const loc = formatSlideLoc(deckRelFile, node.loc.start.line, node.loc.start.column);
     insertions.push({
       offset: name.end ?? 0,
-      text: ` data-slide-loc="${node.loc.start.line}:${node.loc.start.column}"`,
+      text: ` data-slide-loc="${loc}"`,
     });
   });
 
@@ -75,6 +77,16 @@ function isSlideSourceFile(id: string, slidesRootPosix: string): boolean {
   return rel.includes('/');
 }
 
+/** `slides/cover/index.tsx` → `index.tsx`; `slides/cover/slides/a.tsx` → `slides/a.tsx`. */
+export function deckRelFileFromModuleId(id: string, slidesRootPosix: string): string | null {
+  const filePath = id.split(/[?#]/)[0].replace(/\\/g, '/');
+  if (!filePath.startsWith(`${slidesRootPosix}/`)) return null;
+  const rel = filePath.slice(slidesRootPosix.length + 1);
+  const slash = rel.indexOf('/');
+  if (slash < 0) return null;
+  return rel.slice(slash + 1);
+}
+
 export function locTagsPlugin(opts: LocTagsPluginOptions): Plugin {
   const slidesRoot = path.resolve(opts.userCwd, opts.slidesDir ?? 'slides').replace(/\\/g, '/');
   return {
@@ -85,7 +97,8 @@ export function locTagsPlugin(opts: LocTagsPluginOptions): Plugin {
     enforce: 'pre',
     transform(code, id) {
       if (!isSlideSourceFile(id, slidesRoot)) return null;
-      const next = injectLocTags(code);
+      const deckRel = deckRelFileFromModuleId(id, slidesRoot);
+      const next = injectLocTags(code, deckRel);
       if (next === null) return null;
       return { code: next, map: null };
     },

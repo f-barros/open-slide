@@ -564,7 +564,7 @@ const Init: Page = () => {
             <div style={{ display: 'flex', gap: 16 }}>
               <span style={{ color: palette.mint }}>$</span>
               <span className="gs-type" style={{ color: palette.text }}>
-                npx @open-slide/cli init my-slide
+                npx @comp-slide/cli init my-slide
               </span>
             </div>
             <div style={{ height: 18 }} />
@@ -2325,7 +2325,7 @@ const Apply: Page = () => (
 // ─── Slide 6: Recap ──────────────────────────────────────────────────────────
 const Recap: Page = () => {
   const steps = [
-    { n: '01', title: 'init', caption: 'npx @open-slide/cli init' },
+    { n: '01', title: 'init', caption: 'npx @comp-slide/cli init' },
     { n: '02', title: 'prompt', caption: 'create-slide' },
     { n: '03', title: 'edit', caption: 'click → save' },
     { n: '04', title: 'assets', caption: 'drag · drop · svgl' },

@@ -135,7 +135,7 @@ export async function run(argv: string[]): Promise<void> {
 
   program
     .command('sync:skills')
-    .description('Sync built-in skills from @open-slide/core into this workspace')
+    .description('Sync built-in skills from @comp-slide/core into this workspace')
     .option('--dry-run', 'show what would change without writing')
     .action(async (flags: SyncFlags) => {
       const { syncSkills } = await import('./sync.ts');

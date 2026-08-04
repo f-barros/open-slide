@@ -1,8 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as babelParse } from '@babel/parser';
+import { resolveSlideEntry, SLIDE_ID_RE } from './slide-entry.ts';
 
-export const SLIDE_ID_RE = /^[a-z0-9_-]+$/i;
+export { resolveSlideEntry, SLIDE_ID_RE } from './slide-entry.ts';
 
 type MetaTitleRead =
   | { kind: 'found'; title: string }
@@ -112,9 +113,8 @@ export async function duplicateSlideDir(
     return { ok: false, status: 400, error: 'invalid slideId' };
   }
 
-  try {
-    await fs.access(path.join(srcDir, 'index.tsx'));
-  } catch {
+  const srcEntry = resolveSlideEntry(root, slideId);
+  if (!srcEntry) {
     return { ok: false, status: 404, error: 'slide not found' };
   }
 
@@ -148,7 +148,6 @@ export async function duplicateSlideDir(
     return { ok: false, status: 400, error: 'invalid newId' };
   }
 
-  const srcEntry = path.join(srcDir, 'index.tsx');
   let copiedEntrySource: string;
   try {
     const source = await fs.readFile(srcEntry, 'utf8');
@@ -168,7 +167,8 @@ export async function duplicateSlideDir(
 
   try {
     await fs.cp(srcDir, dstDir, { recursive: true, errorOnExist: true, force: false });
-    await fs.writeFile(path.join(dstDir, 'index.tsx'), copiedEntrySource, 'utf8');
+    const dstEntry = path.join(dstDir, path.basename(srcEntry));
+    await fs.writeFile(dstEntry, copiedEntrySource, 'utf8');
     return { ok: true, slideId: newId };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
@@ -176,15 +176,6 @@ export async function duplicateSlideDir(
     }
     return { ok: false, status: 500, error: String((err as Error).message ?? err) };
   }
-}
-
-export function resolveSlideEntry(slidesRoot: string, slideId: string): string | null {
-  if (!SLIDE_ID_RE.test(slideId)) return null;
-  const dir = path.resolve(slidesRoot, slideId);
-  if (!dir.startsWith(slidesRoot + path.sep)) return null;
-  // The SlideMeta contract says every slide has slides/<id>/index.tsx; we only
-  // edit that file to keep the write surface tiny and predictable.
-  return path.join(dir, 'index.tsx');
 }
 
 function escapeSingleQuoted(s: string): string {

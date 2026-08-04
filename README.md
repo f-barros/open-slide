@@ -17,7 +17,7 @@
 Every slide renders into a fixed **1920 × 1080** canvas. Pages are arbitrary React components, not a constrained DSL.
 
 ```bash
-npx @open-slide/cli init my-slide
+npx @comp-slide/cli init my-slide
 ```
 
 ## Why open-slide
@@ -64,7 +64,7 @@ Outputs a plain static build — one-click deploy to Vercel, Cloudflare Pages, Z
 ## Get started
 
 ```bash
-npx @open-slide/cli init my-slide
+npx @comp-slide/cli init my-slide
 cd my-slide
 pnpm dev
 ```
@@ -77,15 +77,15 @@ This repo is a pnpm + Turbo monorepo.
 
 | Path | Description |
 | --- | --- |
-| [packages/core](packages/core) | `@open-slide/core` — runtime (home page, slide viewer, present mode, inspector), Vite plugin, and the `open-slide` dev/build/preview CLI. |
-| [packages/cli](packages/cli) | `@open-slide/cli` — `npx @open-slide/cli init` scaffolder. Generates a minimal workspace where Vite/React/tsconfig stay hidden inside core. |
-| [apps/demo](apps/demo) | Example workspace that consumes `@open-slide/core` via `workspace:*`. Used for local development of the framework. |
+| [packages/core](packages/core) | `@comp-slide/core` — runtime (home page, slide viewer, present mode, inspector), Vite plugin, and the `open-slide` dev/build/preview CLI. |
+| [packages/cli](packages/cli) | `@comp-slide/cli` — `npx @comp-slide/cli init` scaffolder. Generates a minimal workspace where Vite/React/tsconfig stay hidden inside core. |
+| [apps/demo](apps/demo) | Example workspace that consumes `@comp-slide/core` via `workspace:*`. Used for local development of the framework. |
 
 ## Development
 
 ```bash
 pnpm install
-pnpm dev      # runs the demo against the local @open-slide/core
+pnpm dev      # runs the demo against the local @comp-slide/core
 pnpm build    # builds all packages
 pnpm check    # type-checks all packages
 pnpm lint     # lints via biome

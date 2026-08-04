@@ -1,4 +1,8 @@
+import { formatSlideLoc, parseSlideLoc } from './slide-loc.ts';
+
 export type SlideSourceHit = {
+  /** Deck-relative POSIX path when known (from loc-tags or fiber). */
+  file: string | null;
   line: number;
   column: number;
   anchor: HTMLElement;
@@ -34,6 +38,14 @@ function normalizeDebugFileName(fileName: string): string {
   return fileName.split(/[?#]/)[0].replace(/\\/g, '/');
 }
 
+function deckRelFromDebugFile(fileName: string, slideId: string): string | null {
+  const normalized = normalizeDebugFileName(fileName);
+  const needle = `/slides/${slideId}/`;
+  const idx = normalized.lastIndexOf(needle);
+  if (idx === -1) return null;
+  return normalized.slice(idx + needle.length);
+}
+
 export function findSlideSource(
   el: HTMLElement,
   slideId: string,
@@ -45,32 +57,29 @@ export function findSlideSource(
   if (tagged) {
     const loc = tagged.dataset.slideLoc;
     if (loc) {
-      const idx = loc.indexOf(':');
-      if (idx > 0) {
-        const line = Number(loc.slice(0, idx));
-        const column = Number(loc.slice(idx + 1));
-        if (Number.isFinite(line) && Number.isFinite(column)) {
-          return { line, column, anchor: tagged };
-        }
+      const parsed = parseSlideLoc(loc);
+      if (parsed) {
+        return {
+          file: parsed.file,
+          line: parsed.line,
+          column: parsed.column,
+          anchor: tagged,
+        };
       }
     }
   }
 
-  // Fallback for JSX rendered from imported component files (which the
-  // loc-tags plugin doesn't transform).
-  const needle = `/slides/${slideId}/index.tsx`;
+  // Fallback for JSX when loc-tags didn't run or fiber still has debug source.
+  const needle = `/slides/${slideId}/`;
   let fiber = getFiber(el);
   let anchor: HTMLElement = el;
   while (fiber) {
     const src = getSource(fiber);
     const isHost = fiber.stateNode instanceof HTMLElement;
-    if (
-      src?.fileName &&
-      normalizeDebugFileName(src.fileName).endsWith(needle) &&
-      src.lineNumber &&
-      (!opts?.hostOnly || isHost)
-    ) {
+    const fileName = src?.fileName ? normalizeDebugFileName(src.fileName) : null;
+    if (fileName?.includes(needle) && src?.lineNumber && (!opts?.hostOnly || isHost)) {
       return {
+        file: deckRelFromDebugFile(src.fileName ?? fileName, slideId),
         line: src.lineNumber,
         column: src.columnNumber ?? 0,
         anchor: isHost ? (fiber.stateNode as HTMLElement) : anchor,
@@ -83,3 +92,5 @@ export function findSlideSource(
   }
   return null;
 }
+
+export { formatSlideLoc, parseSlideLoc };

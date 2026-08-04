@@ -1,4 +1,4 @@
-# @open-slide/cli
+# @comp-slide/cli
 
 ## 1.4.1
 
@@ -20,7 +20,7 @@
 
 - [#328](https://github.com/1weiho/open-slide/pull/328) [`e850d8e`](https://github.com/1weiho/open-slide/commit/e850d8e2785a171c5d4fed6c43028699931f5f30) Thanks [@1weiho](https://github.com/1weiho)! - Split the slide-authoring skill into per-primitive reference files under `references/`.
 
-- [#335](https://github.com/1weiho/open-slide/pull/335) [`3b01fb3`](https://github.com/1weiho/open-slide/commit/3b01fb3e0213b42ecfc03bdde322b23d284e757e) Thanks [@1weiho](https://github.com/1weiho)! - Generate template skills from `@open-slide/core` at build time instead of committing a mirrored copy.
+- [#335](https://github.com/1weiho/open-slide/pull/335) [`3b01fb3`](https://github.com/1weiho/open-slide/commit/3b01fb3e0213b42ecfc03bdde322b23d284e757e) Thanks [@1weiho](https://github.com/1weiho)! - Generate template skills from `@comp-slide/core` at build time instead of committing a mirrored copy.
 
 ## 1.3.2
 
@@ -64,7 +64,7 @@
 
 ### Patch Changes
 
-- [#147](https://github.com/1weiho/open-slide/pull/147) [`ce3afe6`](https://github.com/1weiho/open-slide/commit/ce3afe676355fb38fc8b7b24de58cc5bdca62019) Thanks [@1weiho](https://github.com/1weiho)! - Pin scaffolded `@open-slide/core` to the core version bundled at CLI build time instead of the CLI's own version.
+- [#147](https://github.com/1weiho/open-slide/pull/147) [`ce3afe6`](https://github.com/1weiho/open-slide/commit/ce3afe676355fb38fc8b7b24de58cc5bdca62019) Thanks [@1weiho](https://github.com/1weiho)! - Pin scaffolded `@comp-slide/core` to the core version bundled at CLI build time instead of the CLI's own version.
 
 ## 1.2.3
 
@@ -115,7 +115,7 @@
 ### Patch Changes
 
 - 05fb7ca: Make the `create-slide` skill propose aesthetic options tailored to the deck's topic instead of a fixed preset list. Step 2 now requires gathering the topic first and brainstorming three concrete, distinct visual directions for that topic (vibe + palette/typography/motif), so users can actually picture each choice.
-- 2f84f47: Add `vite` to the scaffolded template's `devDependencies` so projects created via `open-slide init` are auto-detected as Vite projects on Vercel. Vercel's framework detector regex-matches `"vite"` in `package.json` dependencies, and previously the template only declared `@open-slide/core`, leaving vite transitive and undetected. The existing `build` script (`open-slide build`) and `dist` output directory already match Vercel's Vite preset defaults.
+- 2f84f47: Add `vite` to the scaffolded template's `devDependencies` so projects created via `open-slide init` are auto-detected as Vite projects on Vercel. Vercel's framework detector regex-matches `"vite"` in `package.json` dependencies, and previously the template only declared `@comp-slide/core`, leaving vite transitive and undetected. The existing `build` script (`open-slide build`) and `dist` output directory already match Vercel's Vite preset defaults.
 
 ## 1.0.3
 

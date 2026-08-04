@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
+import { resolveSlideEntry } from '../editing/slide-entry.ts';
 import { SLIDE_ID_RE } from '../editing/slide-ops.ts';
 
 const TEXT_SNIPPET_MAX = 120;
@@ -106,7 +107,15 @@ export function currentPlugin(opts: CurrentPluginOptions): Plugin {
           const pageIndex = Math.max(0, Math.min(totalPages - 1, rawIndex));
           const slideTitle = typeof raw.slideTitle === 'string' ? raw.slideTitle : raw.slideId;
           const view = raw.view === 'assets' ? 'assets' : 'slides';
-          const pagePath = path.join(slidesDir, raw.slideId, 'index.tsx').split(path.sep).join('/');
+          const slidesRoot = path.resolve(userCwd, slidesDir);
+          const entry = resolveSlideEntry(slidesRoot, raw.slideId);
+          const pagePath = (
+            entry
+              ? path.relative(userCwd, entry)
+              : path.join(slidesDir, raw.slideId, 'index.tsx')
+          )
+            .split(path.sep)
+            .join('/');
 
           if (cached?.slideId !== raw.slideId || cached?.pageIndex !== pageIndex) {
             next.selection = null;
